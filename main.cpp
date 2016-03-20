@@ -136,6 +136,7 @@ void IrcBot::start()
             case 4:
                 char command[300];
                 char chan2[250];
+                cout << "Give name of a channel, where I will join (without a #):\n";
                 cin >> chan2;
                 sprintf(gchan, "#%s", chan2);
                 sprintf(command, "JOIN %s\r\n", gchan);
