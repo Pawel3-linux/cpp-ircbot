@@ -1,7 +1,7 @@
-char gchan[300];
-int ilosc = 6;
-int maxval = 49;
-class IrcBot
+char gchan[300]; // Channel name.
+int ilosc = 6; // Value of balls to lotto.
+int maxval = 49; // Maximal value to rand(). (Lotto)
+class IrcBot // Bot's body (class IrcBot)
 {
 public:
     IrcBot(char * _nick, char * _usr);
@@ -47,7 +47,7 @@ using namespace std;
  
 #define MAXDATASIZE 100
 
-char * getNick(char * buf)
+char * getNick(char * buf) // This function gets nick of user, who sent the command.
 {
     char * newnick = (char *) malloc(900);
     buf++;
@@ -57,7 +57,7 @@ char * getNick(char * buf)
     }
     return newnick;
 }
-char * toLowerString(char * str)
+void toLowerString(char * str) // This function makes, that string, which you pass as argument, haven't got upper letters.
 {
     for (int licz = 0; str[licz] != '\0'; licz++)
     {
@@ -65,13 +65,13 @@ char * toLowerString(char * str)
     }
 }
 
-IrcBot::IrcBot(char * _nick, char * _usr)
+IrcBot::IrcBot(char * _nick, char * _usr) //Bot's constructor
 {
     nick = _nick;
     usr = _usr;
 }
  
-IrcBot::~IrcBot()
+IrcBot::~IrcBot() // Bot's destructor
 {
     close (s);
 }
