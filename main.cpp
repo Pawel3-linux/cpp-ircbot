@@ -1,7 +1,7 @@
-char gchan[300]; // Channel name.
-int ilosc = 6; // Value of balls to lotto.
-int maxval = 49; // Maximal value to rand(). (Lotto)
-class IrcBot // Bot's body (class IrcBot)
+char gchan[300];
+int ilosc = 6;
+int maxval = 49;
+class IrcBot
 {
 public:
     IrcBot(char * _nick, char * _usr);
@@ -27,6 +27,7 @@ private:
     void msgprint(char * buf);
 };
 bool msg5 = true;
+bool reged;
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
@@ -42,12 +43,25 @@ bool msg5 = true;
 #include <sys/wait.h>
 #include <signal.h>
 #include <time.h>
- 
+
+bool logging;
+
 using namespace std;
  
 #define MAXDATASIZE 100
 
-char * getNick(char * buf) // This function gets nick of user, who sent the command.
+char * getNick(char * buf)
+{
+    char * newnick = (char *) malloc(900);
+    buf++;
+    while (*buf++ != '!');
+    for (int licz = 0;*buf != '@'; buf++, licz++)
+    {
+        newnick[licz] = *buf;
+    }
+    return newnick;
+}
+char * getNick2(char * buf)
 {
     char * newnick = (char *) malloc(900);
     buf++;
@@ -57,7 +71,7 @@ char * getNick(char * buf) // This function gets nick of user, who sent the comm
     }
     return newnick;
 }
-void toLowerString(char * str) // This function makes, that string, which you pass as argument, haven't got upper letters.
+char * toLowerString(char * str)
 {
     for (int licz = 0; str[licz] != '\0'; licz++)
     {
@@ -65,13 +79,13 @@ void toLowerString(char * str) // This function makes, that string, which you pa
     }
 }
 
-IrcBot::IrcBot(char * _nick, char * _usr) //Bot's constructor
+IrcBot::IrcBot(char * _nick, char * _usr)
 {
     nick = _nick;
     usr = _usr;
 }
  
-IrcBot::~IrcBot() // Bot's destructor
+IrcBot::~IrcBot()
 {
     close (s);
 }
@@ -131,12 +145,10 @@ void IrcBot::start()
             case 3:
                 sendData(nick);
                 sendData(usr);
-                sendData("PRIVMSG NickServ :IDENTIFY jezykC\r\n");
                 break;
             case 4:
                 char command[300];
                 char chan2[250];
-                cout << "Give name of a channel, where I will join (without a #):\n";
                 cin >> chan2;
                 sprintf(gchan, "#%s", chan2);
                 sprintf(command, "JOIN %s\r\n", gchan);
@@ -157,7 +169,6 @@ void IrcBot::start()
         {
             sendPong(buf);
         }
-        //Pass buf to the message handeler
         msgHandel(buf);
  
         //If Ping Recived
@@ -173,9 +184,8 @@ void IrcBot::start()
         //break if connection closed
         if (numbytes==0)
         {
-            cout << "----------------------CONNECTION CLOSED---------------------------"<< endl;
+            cout << "Connection closed! Time:"<< endl;
             cout << timeNow() << endl;
- 
             break;
         }
     }
@@ -233,7 +243,7 @@ char * IrcBot::timeNow()
 }
  
 bool IrcBot::sendData(char *msg)
-{//Send some data
+{
     //Send some data
     int len = strlen(msg);
     int bytes_sent = send(s,msg,len,0);
@@ -302,22 +312,37 @@ void IrcBot::sendPong(char *buf)
                         returnHost[count+5]=buf[x];
                         count++;
                     }
- 
-                    buf[1] = 'O';
-                    sendData(buf);
                     sendData("PONG :abc\r\n");
                     cout << timeNow() <<"  Ping Pong" << endl;
                     return;
                 }
             }
         }
- 
 }
 bool write2;
 void IrcBot::msgHandel(char * buf)
 {
     FILE * file = fopen("log.html", "a+");
-    fprintf(file, "%s||| %s <br> \n", timeNow(), buf);
+    if (charSearch(buf, "cppbot:reg"))
+    {
+        sendData("PRIVMSG NickServ :IDENTIFY nick password\r\n"); // Insert your nick & password.
+        sendData("NICK CppBot\r\n");
+        reged = true;
+    }
+    if (!reged)
+        return;
+    if (logging)
+    {
+        fprintf(file, "%s||| %s <br> \n", timeNow(), buf);
+    }
+    if (charSearch(buf, "cppbot:enablelog:PASSWORD_TO_DO_IT")) // Insert your own password.
+    {
+        logging = true;
+    }
+    if (charSearch(buf, "cppbot:disablelog:PASSWORD_TO_DO_IT")) // Insert your own password.
+    {
+        logging = false;
+    }
     if (!charSearch(buf, "`"))
         toLowerString(buf);
     char sending[1000];
@@ -331,53 +356,18 @@ void IrcBot::msgHandel(char * buf)
         sprintf(sending, "PRIVMSG %s :I live.\r\n", gchan);
         sendData(sending);
     }
-    if (charSearch(buf, "cppbot:reg"))
-    {
-        /*There is password for CppBot. I hide it for you.*/
-    }
-    if (charSearch(buf, "*") || charSearch(buf, "you are stupid"))
-    {
-        char * nick2 = (char *) malloc(900);
-        nick2 = getNick(buf);
-        sprintf(sending, "PRIVMSG ChanServ: KICKBAN #%s %s ", gchan, getNick(buf));
-    }
     if (charSearch(buf, "fuck") || charSearch(buf, "whore") || charSearch(buf, "cock") || charSearch(buf, "sex"))
     {
-        if (write2)
-        {
-            sprintf(sending, "PRIVMSG ChanServ :kickban %s %s swearing\r\n", gchan, getNick(buf));
-            sendData(sending);
-            fprintf(file, "<b> %s </b> <br> <br>\n", buf);
-        }
-        else write2 = true;
+        sprintf(sending, "PRIVMSG %s :!kickban %s swearing\r\n", gchan, getNick2(buf));
+        sendData(sending);
+        fprintf(file, "<b> %s </b> <br> <br>\n", buf);
     }
     if (charSearch(buf, "cppbot:mynick"))
     {
         sprintf(sending, "PRIVMSG %s :%s\r\n", gchan, getNick(buf));
         sendData(sending);
     }
-    if (charSearch(buf, "cppbot:from"))
-    {
-        sprintf(sending, "PRIVMSG %s :Pawel: Poland\r\n", gchan);
-        sendData(sending);
-        sprintf(sending, "PRIVMSG %s :aq2: Finland\r\n", gchan);
-        sendData(sending);
-        //strcpy(sending, "");
-        sprintf(sending, "PRIVMSG %s :el3: Denmark\r\n", gchan);
-        sendData(sending);
-        //strcpy(sending, "");
-        sprintf(sending, "PRIVMSG %s :kadiro: Algieria\r\n", gchan);
-        sendData(sending);
-        //strcpy(sending, "");
-        sprintf(sending, "PRIVMSG %s :hakiro: Greece\r\n", gchan);
-        sendData(sending);
-        //strcpy(sending, "");
-        sprintf(sending, "PRIVMSG %s :Brutus: Netherland\r\n", gchan);
-        sendData(sending);
-        //strcpy(sending, "");
-        sprintf(sending, "PRIVMSG %s :lathifar_: Indonesia\r\n", gchan);
-        sendData(sending);
-    }
+
     if (charSearch(buf, "cppbot:balls:6"))
     {
         ilosc = 6;
@@ -417,26 +407,24 @@ void IrcBot::msgHandel(char * buf)
         sendData(sending);
         sprintf(sending, "PRIVMSG %s :cppbot:lotto - Display random values. See also cppbot:balls, and cppbot:maxval.\r\n", gchan);
         sendData(sending);
-        //strcpy(sending, "");
         sprintf(sending, "PRIVMSG %s :cppbot:maxval - Usage:'cppbot:maxval:[maxval]' - Sets maximal value in cppbot:lotto. This value can be equal to 49/100.\r\n", gchan);
         sendData(sending);
-        //strcpy(sending, "");
         sprintf(sending, "PRIVMSG %s :cppbot:balls - Usage:'cppbot:balls:[numberofballs]' - Sets number of balls in cppbot:lotto. This value can be equal to 6/10/25.\r\n", gchan);
         sendData(sending);
-        //strcpy(sending, "");
-        sprintf(sending, "PRIVMSG %s :cppbot:from - Displays nationalities of standard channel users.\r\n", gchan);
-        sendData(sending);
-        //strcpy(sending, "");
         sprintf(sending, "PRIVMSG %s :cppbot:owner - Displays owner of this bot.\r\n", gchan);
         sendData(sending);
-        //strcpy(sending, "");
         sprintf(sending, "PRIVMSG %s :cppbot:mynick - Displays your username.\r\n", gchan);
         sendData(sending);
-        //strcpy(sending, "");
+        sprintf(sending, "PRIVMSG %s :cppbot:kickme - Kicks you from the channel.\r\n", gchan);
+        sendData(sending);
         sprintf(sending, "PRIVMSG %s :cppbot:hack - Displays fake hacking informations.\r\n", gchan);
         sendData(sending);
-        //strcpy(sending, "");
         sprintf(sending, "PRIVMSG %s :cppbot:test - If bot display 'I live.', it not dead.\r\n", gchan);
+        sendData(sending);
+    }
+    if (charSearch(buf, "cppbot:kickme"))
+    {
+        sprintf(sending, "PRIVMSG %s :!kick %s bye\r\n", gchan, getNick2(buf));
         sendData(sending);
     }
     if (charSearch(buf, "`"))
@@ -486,7 +474,9 @@ void IrcBot::msgHandel(char * buf)
 }
 int main()
 {
-    IrcBot bot = IrcBot("NICK CppBot\r\n","USER CppBot a a :CppBot\r\n");
+    logging = false;
+    reged = false;
+    IrcBot bot = IrcBot("NICK nick\r\n","USER nick a a :nick\r\n"); // Insert a nick there.
     bot.start();
     return 0;
 }
