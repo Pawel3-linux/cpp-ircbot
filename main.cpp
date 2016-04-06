@@ -325,7 +325,7 @@ void IrcBot::msgHandel(char * buf)
     FILE * file = fopen("log.html", "a+");
     if (charSearch(buf, "cppbot:reg"))
     {
-        sendData("PRIVMSG NickServ :IDENTIFY nick password\r\n"); // Insert your nick & password.
+        sendData("PRIVMSG NickServ :IDENTIFY _nick_ [password]\r\n"); // Insert your nick & password.
         sendData("NICK CppBot\r\n");
         reged = true;
     }
@@ -476,7 +476,7 @@ int main()
 {
     logging = false;
     reged = false;
-    IrcBot bot = IrcBot("NICK nick\r\n","USER nick a a :nick\r\n"); // Insert a nick there.
+    IrcBot bot = IrcBot("NICK _nick_\r\n","USER _nick_ a a :_nick_\r\n"); // Insert a nick there.
     bot.start();
     return 0;
 }
