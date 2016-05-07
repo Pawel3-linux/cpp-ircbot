@@ -14,8 +14,7 @@ public:
  
 private:
     char *port;
-    int s; //the socket descriptor
- 
+    int s;
     char *nick;
     char *usr;
  
@@ -25,6 +24,7 @@ private:
     void sendPong(char *buf);
     void msgHandel(char *buf);
     void msgprint(char * buf);
+    void poc(char *);
 };
 bool msg5 = true;
 bool reged;
@@ -43,12 +43,13 @@ bool reged;
 #include <sys/wait.h>
 #include <signal.h>
 #include <time.h>
+#include <fstream>
 
 bool logging;
 
 using namespace std;
  
-#define MAXDATASIZE 100
+#define MAXDATASIZE 250
 
 char * getNick(char * buf)
 {
@@ -94,51 +95,33 @@ void IrcBot::start()
 {
     srand(time(0));
     struct addrinfo hints, *servinfo;
- 
-    //Setup run with no errors
     setup = true;
- 
     port = "6667";
- 
-    //Ensure that servinfo is clear
-    memset(&hints, 0, sizeof hints); // make sure the struct is empty
- 
-    //setup hints
-    hints.ai_family = AF_UNSPEC; // don't care IPv4 or IPv6
-    hints.ai_socktype = SOCK_STREAM; // TCP stream sockets
- 
-    //Setup the structs if error print why
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
     int res;
     if ((res = getaddrinfo("irc.spotchat.org",port,&hints,&servinfo)) != 0)
     {
         setup = false;
         fprintf(stderr,"getaddrinfo: %s\n", gai_strerror(res));
     }
- 
-    //setup the socket
     if ((s = socket(servinfo->ai_family,servinfo->ai_socktype,servinfo->ai_protocol)) == -1)
     {
         perror("client: socket");
     }
- 
-    //Connect
     if (connect(s,servinfo->ai_addr, servinfo->ai_addrlen) == -1)
     {
         close (s);
         perror("Client Connect");
     }
- 
-    //We dont need this anymore
     freeaddrinfo(servinfo);
- 
-    //Recv some data
     int numbytes;
     char buf[MAXDATASIZE];
  
     int count = 0;
     while (1)
     {
-        //declars
         count++;
  
         switch (count) {
@@ -159,29 +142,20 @@ void IrcBot::start()
             default:
                 break;
         }
- 
-        //Recv & print Data
         numbytes = recv(s,buf,MAXDATASIZE-1,0);
         buf[numbytes]='\0';
         cout << buf;
-        //buf is the data that is recived
         if (charSearch(buf,"PING"))
         {
             sendPong(buf);
         }
         msgHandel(buf);
- 
-        //If Ping Recived
-        /*
-         * must reply to ping overwise connection will be closed
-         * see http://www.irchelp.org/irchelp/rfc/chapter4.html
-         */
+
         if (charSearch(buf,"PING"))
         {
             sendPong(buf);
         }
- 
-        //break if connection closed
+
         if (numbytes==0)
         {
             cout << "Connection closed! Time:"<< endl;
@@ -190,20 +164,25 @@ void IrcBot::start()
         }
     }
 }
- 
+
+void IrcBot::poc(char * toput)
+{
+    char * costam2 = (char *) malloc(1000);
+    sprintf(costam2, "PRIVMSG %s :%s", gchan, toput);
+    sendData(costam2);
+    free(costam2);
+}
+
 bool IrcBot::charSearch(char *toSearch, char *searchFor)
 {
     int len = strlen(toSearch);
-    int forLen = strlen(searchFor); // The length of the searchfor field
- 
-    //Search through each char in toSearch
+    int forLen = strlen(searchFor);
+
     for (int i = 0; i < len;i++)
     {
-        //If the active char is equil to the first search item then search toSearch
         if (searchFor[0] == toSearch[i])
         {
             bool found = true;
-            //search the char array for search field
             int x;
             for (x = 1; x < forLen; x++)
             {
@@ -212,8 +191,7 @@ bool IrcBot::charSearch(char *toSearch, char *searchFor)
                     found = false;
                 }
             }
- 
-            //if found return true;
+
             if (found == true)
                 return x;
         }
@@ -223,8 +201,7 @@ bool IrcBot::charSearch(char *toSearch, char *searchFor)
 }
  
 bool IrcBot::isConnected(char *buf)
-{//returns true if "/MOTD" is found in the input strin
-    //If we find /MOTD then its ok join a channel
+{
     if (charSearch(buf,"/MOTD") == true)
         return true;
     else
@@ -232,7 +209,7 @@ bool IrcBot::isConnected(char *buf)
 }
  
 char * IrcBot::timeNow()
-{//returns the current date and time
+{
     time_t rawtime;
     struct tm * timeinfo;
  
@@ -260,21 +237,25 @@ void IrcBot::msgprint(char * buf)
     buf++;
     if (buf[0] == '`')
         buf++;
+    char * newstr = (char *) malloc(100);
+    if (!strncmp(buf, "!ban CppBot", 11))
+    {
+        while (*buf-- != ':');
+        while (*buf-- != ':');
+        sprintf(newstr, "PRIVMSG %s :!kick %s\r\n", gchan, getNick2(buf));
+        sendData(newstr);
+    }
+    free(newstr);
     char sendto[400];
     sprintf(sendto, "PRIVMSG %s :%s\r\n", gchan, buf);
     sendData(sendto);
 }
 void IrcBot::sendPong(char *buf)
 {
-    //Get the reply address
-    //loop through bug and find the location of PING
-    //Search through each char in toSearch
- 
     char * toSearch = "PING ";
  
     for (int i = 0; i < strlen(buf);i++)
         {
-            //If the active char is equil to the first search item then search toSearch
             if (buf[i] == toSearch[0])
             {
                 bool found = true;
@@ -286,8 +267,6 @@ void IrcBot::sendPong(char *buf)
                         found = false;
                     }
                 }
- 
-                //if found return true;
                 if (found == true)
                 {
                     int count = 0;
@@ -322,11 +301,12 @@ void IrcBot::sendPong(char *buf)
 bool write2;
 void IrcBot::msgHandel(char * buf)
 {
+    char * orgbuf = (char *) malloc(900);
+    strcpy(orgbuf, buf);
     FILE * file = fopen("log.html", "a+");
     if (charSearch(buf, "cppbot:reg"))
     {
-        sendData("PRIVMSG NickServ :IDENTIFY _nick_ [password]\r\n"); // Insert your nick & password.
-        sendData("NICK CppBot\r\n");
+        sendData("PRIVMSG NickServ :IDENTIFY YourBotNick [password]\r\n");
         reged = true;
     }
     if (!reged)
@@ -335,17 +315,18 @@ void IrcBot::msgHandel(char * buf)
     {
         fprintf(file, "%s||| %s <br> \n", timeNow(), buf);
     }
-    if (charSearch(buf, "cppbot:enablelog:PASSWORD_TO_DO_IT")) // Insert your own password.
+    if (charSearch(buf, "cppbot:enablelog:27072003:jezykC2003"))
     {
         logging = true;
     }
-    if (charSearch(buf, "cppbot:disablelog:PASSWORD_TO_DO_IT")) // Insert your own password.
+    if (charSearch(buf, "cppbot:disablelog:27072003:jezykC2003"))
     {
         logging = false;
     }
-    if (!charSearch(buf, "`"))
+    if (!charSearch(buf, "`") && !charSearch(buf, "JOIN :"))
         toLowerString(buf);
     char sending[1000];
+    char sending2[1000];
     if (charSearch(buf, "cppbot:owner"))
     {
         sprintf(sending, "PRIVMSG %s :Pawel.\r\n", gchan);
@@ -388,6 +369,24 @@ void IrcBot::msgHandel(char * buf)
     {
         maxval = 100;
     }
+    if (charSearch(buf, "c++:syntax:cout:display_your_object;"))
+    {
+        cout << "Debug.";
+        poc("Syntax:\r\n");
+        poc("ostream & operator<<(ostream & screen, [your-class-name] & name)\r\n");
+        poc("{\r\n");
+        poc("/*Code, which displays your object. Please remember, that you must use screen, not cout.*/\r\n");
+        poc("/*For example, you must write 'screen << \"Object\";, no cout << \"Object\";*/\r\n");
+        poc("}\r\n");
+    }
+    if (charSearch(buf, "c++:syntax:cout;"))
+    {
+        poc("cout syntax:\r\n");
+        poc("cout << [object1] << [object2] << ... << [objectN];\r\n");
+        poc("If you created your own object, you must define function for cout,\r\n");
+        poc("because cout don't know, how to print your object on console screen.\r\n");
+        poc("To see, how to define that function, write: \"c++:syntax:cout:display_your_object;\".\r\n");
+    }
     if (charSearch(buf, "cppbot:lotto"))
     {
         srand(time(0));
@@ -427,6 +426,18 @@ void IrcBot::msgHandel(char * buf)
         sprintf(sending, "PRIVMSG %s :!kick %s bye\r\n", gchan, getNick2(buf));
         sendData(sending);
     }
+    if (charSearch(buf, "c++:quiz"))
+    {
+        int randomval = ((rand() % 25) + 1);
+        
+    }
+    if (charSearch(buf, "JOIN :"))
+    {
+        sprintf(sending, "PRIVMSG %s :Welcome to %s channel, %s! Please read channel topic and channel rules. Good day, %s!\r\n", gchan, gchan, getNick2(buf), getNick2(buf));
+        sendData(sending);
+        sprintf(sending, "PRIVMSG %s :Please also remember, that there are logging features in this channel. Please don't swear. If you would like to display bot commands, type cppbot:help .\r\n", getNick2(buf));
+        sendData(sending);
+    }
     if (charSearch(buf, "`"))
     {
         msgprint(buf);
@@ -436,31 +447,26 @@ void IrcBot::msgHandel(char * buf)
         int randed = (rand() % 6);
         if (randed == 0)
         {
-            //strcpy(sending, "");
             sprintf(sending, "PRIVMSG %s :Clearing YouTube page and deleting all videos there...\r\n", gchan);
             sendData(sending);
         }
         else if (randed == 1)
         {
-            //strcpy(sending, "");
             sprintf(sending, "PRIVMSG %s :I have hacked all users passwords!\r\n", gchan);
             sendData(sending);
         }
         else if (randed == 2)
         {
-            //strcpy(sending, "");
             sprintf(sending, "PRIVMSG %s :I started hacking Linux Mint page...\r\n", gchan);
             sendData(sending);
         }
         else if (randed == 3)
         {
-            //strcpy(sending, "");
             sprintf(sending, "PRIVMSG %s :Clearing %s's hard disc...\r\n", gchan, getNick(buf));
             sendData(sending);
         }
         else if (randed == 4)
         {
-            //strcpy(sending, "");
             sprintf(sending, "PRIVMSG %s :Hacking %s's files...\r\n", gchan, getNick(buf));
             sendData(sending);
         }
@@ -476,7 +482,7 @@ int main()
 {
     logging = false;
     reged = false;
-    IrcBot bot = IrcBot("NICK _nick_\r\n","USER _nick_ a a :_nick_\r\n"); // Insert a nick there.
+    IrcBot bot = IrcBot("NICK YourBotNick\r\n","USER YourBotNick a a :YourBotNick\r\n");
     bot.start();
     return 0;
 }
